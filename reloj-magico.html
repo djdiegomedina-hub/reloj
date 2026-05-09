@@ -354,7 +354,7 @@
     const w = rect.width;
     const h = rect.height;
 
-    spawnRipple(e.clientX - rect.left, e.clientY - rect.top);
+
 
     const now = Date.now();
     const isDouble = (now - lastTap) < DOUBLE_TAP;
@@ -375,12 +375,12 @@
     if (inTopRight) {
       offsetMinutes++;
       flash();
-      showFeedback('+1');
+      
       updateDisplay();
     } else if (inBotLeft) {
       offsetMinutes--;
       flash();
-      showFeedback('−1');
+    
       updateDisplay();
     }
   });
