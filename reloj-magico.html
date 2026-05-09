@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0c29">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reloj">
+<title>Reloj</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #app {
+    width: 100vw; height: 100vh;
+    position: relative;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'Outfit', sans-serif;
+    overflow: hidden;
+    cursor: default;
+  }
+
+  /* Fondo tipo pantalla de bloqueo */
+  #bg {
+    position: absolute; inset: 0; z-index: 0;
+    background: linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  }
+
+  /* Partículas / estrellas */
+  .star {
+    position: absolute; border-radius: 50%;
+    background: white; opacity: 0;
+    animation: twinkle linear infinite;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 0.8; }
+  }
+
+  /* Orbe decorativo */
+  #orb {
+    position: absolute; z-index: 1;
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(120,80,220,0.18), transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -60%);
+    filter: blur(30px);
+    animation: orbPulse 6s ease-in-out infinite;
+  }
+
+  @keyframes orbPulse {
+    0%, 100% { opacity: 0.6; transform: translate(-50%,-60%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%,-60%) scale(1.12); }
+  }
+
+  /* Contenido principal */
+  #content {
+    position: relative; z-index: 3;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0;
+  }
+
+  #day-display {
+    color: rgba(255,255,255,0.65);
+    font-size: 17px; font-weight: 300;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  #date-display {
+    color: rgba(255,255,255,0.5);
+    font-size: 14px; font-weight: 300;
+    letter-spacing: 1px;
+    margin-bottom: 24px;
+  }
+
+  #time-display {
+    color: rgba(255,255,255,0.95);
+    font-size: clamp(80px, 22vw, 110px);
+    font-weight: 100;
+    letter-spacing: -3px;
+    line-height: 1;
+    transition: opacity 0.12s ease;
+  }
+
+  #time-display.flash { opacity: 0.2; }
+
+  #seconds-display {
+    color: rgba(255,255,255,0.35);
+    font-size: 22px; font-weight: 300;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* Barra de estado inferior tipo iOS */
+  #status-bar {
+    position: absolute; bottom: 40px; z-index: 3;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  #unlock-hint {
+    color: rgba(255,255,255,0.35);
+    font-size: 13px; font-weight: 300;
+    letter-spacing: 1.5px;
+  }
+
+  /* Zonas de toque invisibles */
+  #zone-top-right {
+    position: absolute; top: 0; right: 0;
+    width: 50%; height: 50%;
+    z-index: 10;
+  }
+
+  #zone-bot-left {
+    position: absolute; bottom: 0; left: 0;
+    width: 50%; height: 50%;
+    z-index: 10;
+  }
+
+  #zone-center {
+    position: absolute; z-index: 9;
+    width: 50%; height: 50%;
+    top: 25%; left: 25%;
+  }
+
+  /* Ripple de toque */
+  .ripple {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    width: 80px; height: 80px;
+    margin-left: -40px; margin-top: -40px;
+    animation: rippleOut 0.5s ease-out forwards;
+    pointer-events: none; z-index: 20;
+  }
+
+  @keyframes rippleOut {
+    from { transform: scale(0); opacity: 1; }
+    to { transform: scale(3); opacity: 0; }
+  }
+
+  /* Badge de offset — SOLO visible cuando offset != 0 */
+  #offset-badge {
+    position: absolute; top: 48px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    background: rgba(255,255,255,0.1);
+    border: 0.5px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 5px 16px;
+    font-size: 13px; font-weight: 300;
+    color: rgba(255,255,255,0.8);
+    letter-spacing: 1px;
+    transition: opacity 0.4s;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #offset-badge.visible { opacity: 1; }
+
+  /* Animando indicator */
+  #anim-indicator {
+    position: absolute; bottom: 90px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 5; display: flex; gap: 5px; align-items: center;
+    opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #anim-indicator.active { opacity: 1; }
+
+  .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    animation: dotPulse 0.7s infinite alternate;
+  }
+  .dot:nth-child(2) { animation-delay: 0.23s; }
+  .dot:nth-child(3) { animation-delay: 0.46s; }
+
+  @keyframes dotPulse {
+    to { opacity: 0.15; transform: scale(0.7); }
+  }
+
+  /* Notificación de toque (feedback visual) */
+  #touch-feedback {
+    position: absolute; z-index: 6;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 28px; font-weight: 200;
+    color: rgba(255,255,255,0.9);
+    opacity: 0; pointer-events: none;
+    transition: none;
+  }
+  #touch-feedback.show {
+    animation: feedbackPop 0.5s ease-out forwards;
+  }
+  @keyframes feedbackPop {
+    0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
+    50% { opacity: 1; transform: translate(-50%, -80%) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%, -110%) scale(1); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bg"></div>
+  <div id="orb"></div>
+
+  <!-- Estrellas se generan por JS -->
+
+  <div id="offset-badge">+0 min</div>
+
+  <div id="content">
+    <div id="day-display">Lunes</div>
+    <div id="date-display">1 de enero</div>
+    <div id="time-display">00:00</div>
+    <div id="seconds-display">:00</div>
+  </div>
+
+  <div id="anim-indicator">
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+
+  <div id="touch-feedback"></div>
+
+  <div id="status-bar">
+    <span id="unlock-hint">✦ &nbsp; desliza para desbloquear &nbsp; ✦</span>
+  </div>
+
+  <!-- Zonas invisibles de toque -->
+  <div id="zone-top-right"></div>
+  <div id="zone-bot-left"></div>
+  <div id="zone-center"></div>
+</div>
+
+<script>
+(function() {
+  let offsetMinutes = 0;
+  let animating = false;
+  let animTimer = null;
+  let lastTap = 0;
+  const DOUBLE_TAP = 320;
+
+  const timeEl = document.getElementById('time-display');
+  const dayEl = document.getElementById('day-display');
+  const dateEl = document.getElementById('date-display');
+  const secsEl = document.getElementById('seconds-display');
+  const badge = document.getElementById('offset-badge');
+  const animInd = document.getElementById('anim-indicator');
+  const app = document.getElementById('app');
+  const feedback = document.getElementById('touch-feedback');
+
+  const days = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+  function pad(n) { return String(n).padStart(2,'0'); }
+
+  function getDisplayTime() {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + offsetMinutes);
+    return now;
+  }
+
+  function updateDisplay() {
+    const t = getDisplayTime();
+    timeEl.textContent = pad(t.getHours()) + ':' + pad(t.getMinutes());
+    secsEl.textContent = ':' + pad(t.getSeconds());
+    dayEl.textContent = days[t.getDay()];
+    dateEl.textContent = t.getDate() + ' de ' + months[t.getMonth()] + ' ' + t.getFullYear();
+    if (offsetMinutes === 0) {
+      badge.classList.remove('visible');
+    } else {
+      const sign = offsetMinutes > 0 ? '+' : '';
+      badge.textContent = sign + offsetMinutes + ' min';
+      badge.classList.add('visible');
+    }
+  }
+
+  function flash() {
+    timeEl.classList.add('flash');
+    setTimeout(() => timeEl.classList.remove('flash'), 120);
+  }
+
+  function showFeedback(text) {
+    feedback.textContent = text;
+    feedback.classList.remove('show');
+    void feedback.offsetWidth;
+    feedback.classList.add('show');
+    feedback.addEventListener('animationend', () => feedback.classList.remove('show'), { once: true });
+  }
+
+  function spawnRipple(x, y) {
+    const r = document.createElement('div');
+    r.className = 'ripple';
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    app.appendChild(r);
+    r.addEventListener('animationend', () => r.remove());
+  }
+
+  function stopAnim() {
+    if (animTimer) { clearInterval(animTimer); animTimer = null; }
+    animating = false;
+    animInd.classList.remove('active');
+  }
+
+  function startAnim() {
+    if (animating) { stopAnim(); return; }
+    if (offsetMinutes === 0) return;
+    animating = true;
+    animInd.classList.add('active');
+    const step = offsetMinutes > 0 ? -1 : 1;
+    animTimer = setInterval(() => {
+      offsetMinutes += step;
+      flash();
+      updateDisplay();
+      if (offsetMinutes === 0) stopAnim();
+    }, 800);
+  }
+
+  // Estrellas
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2 + 0.5;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      animation-duration:${2 + Math.random()*4}s;
+      animation-delay:${Math.random()*4}s;
+    `;
+    document.getElementById('bg').appendChild(s);
+  }
+
+  // Touch / click handler en todo el app
+  app.addEventListener('click', function(e) {
+    const rect = app.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const w = rect.width;
+    const h = rect.height;
+
+    spawnRipple(e.clientX - rect.left, e.clientY - rect.top);
+
+    const now = Date.now();
+    const isDouble = (now - lastTap) < DOUBLE_TAP;
+    lastTap = isDouble ? 0 : now;
+
+    const inCenter = x > w*0.25 && x < w*0.75 && y > h*0.25 && y < h*0.75;
+
+    if (isDouble && inCenter) {
+      startAnim();
+      return;
+    }
+
+    if (animating) return;
+
+    const inTopRight = x > w*0.5 && y < h*0.5;
+    const inBotLeft  = x < w*0.5 && y > h*0.5;
+
+    if (inTopRight) {
+      offsetMinutes++;
+      flash();
+      showFeedback('+1');
+      updateDisplay();
+    } else if (inBotLeft) {
+      offsetMinutes--;
+      flash();
+      showFeedback('−1');
+      updateDisplay();
+    }
+  });
+
+  // Mantener segundos en tiempo real
+  function tick() {
+    updateDisplay();
+    const now = new Date();
+    const ms = 1000 - now.getMilliseconds();
+    setTimeout(tick, ms);
+  }
+  tick();
+
+  // Evitar que la pantalla se duerma (Wake Lock API)
+  async function keepAwake() {
+    if ('wakeLock' in navigator) {
+      try { await navigator.wakeLock.request('screen'); } catch(e) {}
+    }
+  }
+  keepAwake();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') keepAwake();
+  });
+})();
+</script>
+</body>
+</html>
